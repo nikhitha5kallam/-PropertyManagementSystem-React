@@ -6,6 +6,8 @@ function AdminPendingProperties() {
     JSON.parse(localStorage.getItem("properties")) || []
   );
 
+  const [photoIndexes, setPhotoIndexes] = useState({});
+
   const documents = [
     { key: "ownershipVerified", label: "Property Ownership Document" },
     { key: "taxVerified", label: "Property/Home Tax Receipt" },
@@ -13,6 +15,22 @@ function AdminPendingProperties() {
     { key: "ownerIdVerified", label: "Owner ID Proof" },
     { key: "addressVerified", label: "Address Proof" }
   ];
+
+  // Previous photo
+  function previousPhoto(id, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [id]: ((prev[id] || 0) - 1 + totalPhotos) % totalPhotos
+    }));
+  }
+
+  // Next photo
+  function nextPhoto(id, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [id]: ((prev[id] || 0) + 1) % totalPhotos
+    }));
+  }
 
   function updateVerification(id, key, checked) {
     const updated = properties.map((property) =>
@@ -78,75 +96,119 @@ function AdminPendingProperties() {
       {pendingProperties.length === 0 ? (
         <p>No pending properties available.</p>
       ) : (
-        pendingProperties.map((property) => (
-          <div className="property-card" key={property.id}>
+        pendingProperties.map((property) => {
+          const photos =
+            property.photos && property.photos.length > 0
+              ? property.photos
+              : property.photo
+                ? [property.photo]
+                : [];
 
-            {property.photo && (
-              <img src={property.photo} alt={property.propertyName} />
-            )}
+          const currentIndex = photoIndexes[property.id] || 0;
 
-            <h2>{property.propertyName}</h2>
-            <p>Location: {property.location}</p>
-            <p>Type: {property.propertyType}</p>
-            <p>Area: {property.area} {property.areaUnit}</p>
-            <p>Monthly Rent: ₹{property.rent}</p>
-            <p>Owner: {property.ownerEmail}</p>
+          return (
+            <div className="property-card" key={property.id}>
 
-            <h3>Document Verification</h3>
+              {/* Property Photo Gallery */}
+              {photos.length > 0 && (
+                <div className="property-gallery">
+                  <img
+                    src={photos[currentIndex]}
+                    alt={property.propertyName}
+                    className="property-gallery-image"
+                  />
 
-            {documents.map((doc) => (
-              <div className="document-check" key={doc.key}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={property[doc.key] || false}
-                    onChange={(e) =>
-                      updateVerification(
-                        property.id,
-                        doc.key,
-                        e.target.checked
+                  {photos.length > 1 && (
+                    <div className="gallery-controls">
+
+                      <button
+                        onClick={() =>
+                          previousPhoto(property.id, photos.length)
+                        }
+                      >
+                        ❮ Previous
+                      </button>
+
+                      <span>
+                        {currentIndex + 1} / {photos.length}
+                      </span>
+
+                      <button
+                        onClick={() =>
+                          nextPhoto(property.id, photos.length)
+                        }
+                      >
+                        Next ❯
+                      </button>
+
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <h2>{property.propertyName}</h2>
+              <p>Location: {property.location}</p>
+              <p>Type: {property.propertyType}</p>
+              <p>Area: {property.area} {property.areaUnit}</p>
+              <p>Monthly Rent: ₹{property.rent}</p>
+              <p>Owner: {property.ownerEmail}</p>
+
+              <h3>Document Verification</h3>
+
+              {documents.map((doc) => (
+                <div className="document-check" key={doc.key}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={property[doc.key] || false}
+                      onChange={(e) =>
+                        updateVerification(
+                          property.id,
+                          doc.key,
+                          e.target.checked
+                        )
+                      }
+                    />
+                    {doc.label}
+                  </label>
+
+                  <button
+                    onClick={() =>
+                      viewDocument(
+                        property[
+                          {
+                            ownershipVerified: "ownershipDocument",
+                            taxVerified: "taxDocument",
+                            electricityVerified: "electricityBill",
+                            ownerIdVerified: "ownerId",
+                            addressVerified: "addressProof"
+                          }[doc.key]
+                        ]
                       )
                     }
-                  />
-                  {doc.label}
-                </label>
+                  >
+                    View Document
+                  </button>
+                </div>
+              ))}
+
+              <div className="approval-buttons">
+                <button
+                  onClick={() => updateStatus(property.id, "Approved")}
+                >
+                  Approve Property
+                </button>
 
                 <button
-                  onClick={() =>
-                    viewDocument(
-                      property[
-                        {
-                          ownershipVerified: "ownershipDocument",
-                          taxVerified: "taxDocument",
-                          electricityVerified: "electricityBill",
-                          ownerIdVerified: "ownerId",
-                          addressVerified: "addressProof"
-                        }[doc.key]
-                      ]
-                    )
-                  }
+                  onClick={() => updateStatus(property.id, "Rejected")}
                 >
-                  View Document
+                  Reject Property
                 </button>
               </div>
-            ))}
 
-            <div className="approval-buttons">
-              <button
-                onClick={() => updateStatus(property.id, "Approved")}
-              >
-                Approve Property
-              </button>
-
-              <button
-                onClick={() => updateStatus(property.id, "Rejected")}
-              >
-                Reject Property
-              </button>
             </div>
-
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );

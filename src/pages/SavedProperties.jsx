@@ -3,66 +3,95 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function SavedProperties() {
-  const [properties, setProperties] = useState([]);
+  const [savedProperties, setSavedProperties] = useState([]);
+  const [photoIndexes, setPhotoIndexes] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
     loadSavedProperties();
   }, []);
 
-  const loadSavedProperties = () => {
+  // Load saved properties for logged-in tenant
+  function loadSavedProperties() {
     const currentUser = localStorage.getItem("currentUser");
 
-    const saved =
+    const allSaved =
       JSON.parse(localStorage.getItem("savedProperties")) || [];
 
-    const allProperties =
-      JSON.parse(localStorage.getItem("properties")) || [];
-
-    const tenantSaved = saved.filter(
+    const userSaved = allSaved.filter(
       (item) => item.tenantEmail === currentUser
     );
 
-    const savedIds = tenantSaved.map(
-      (item) => item.propertyId
+    // Get latest property details, including all photos
+    const allProperties =
+      JSON.parse(localStorage.getItem("properties")) || [];
+
+    const updatedSaved = userSaved.map((saved) => {
+      const property = allProperties.find(
+        (p) => p.id === saved.propertyId
+      );
+
+      return property
+        ? { ...saved, ...property }
+        : saved;
+    });
+
+    setSavedProperties(updatedSaved);
+  }
+
+  // Previous photo
+  function previousPhoto(propertyId, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [propertyId]:
+        ((prev[propertyId] || 0) - 1 + totalPhotos) % totalPhotos
+    }));
+  }
+
+  // Next photo
+  function nextPhoto(propertyId, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [propertyId]:
+        ((prev[propertyId] || 0) + 1) % totalPhotos
+    }));
+  }
+
+  // Remove saved property
+  function removeSavedProperty(id) {
+    const confirmRemove = window.confirm(
+      "Are you sure you want to remove this property from saved properties?"
     );
 
-    const savedList = allProperties.filter(
-      (property) =>
-        savedIds.includes(property.id) &&
-        property.status === "Approved"
-    );
+    if (confirmRemove) {
+      const currentUser = localStorage.getItem("currentUser");
 
-    setProperties(savedList);
-  };
+      const allSaved =
+        JSON.parse(localStorage.getItem("savedProperties")) || [];
 
-  const removeSavedProperty = (propertyId) => {
-    const currentUser = localStorage.getItem("currentUser");
+      const updatedSaved = allSaved.filter(
+        (item) =>
+          !(item.propertyId === id &&
+            item.tenantEmail === currentUser)
+      );
 
-    const saved =
-      JSON.parse(localStorage.getItem("savedProperties")) || [];
+      localStorage.setItem(
+        "savedProperties",
+        JSON.stringify(updatedSaved)
+      );
 
-    const updatedSaved = saved.filter(
-      (item) =>
-        !(
-          item.propertyId === propertyId &&
-          item.tenantEmail === currentUser
-        )
-    );
+      setSavedProperties((prev) =>
+        prev.filter((item) => item.propertyId !== id)
+      );
 
-    localStorage.setItem(
-      "savedProperties",
-      JSON.stringify(updatedSaved)
-    );
-
-    loadSavedProperties();
-
-    alert("Property removed from saved list!");
-  };
+      alert("Property removed from saved list!");
+    }
+  }
 
   return (
     <div className="admin-section">
-      <h2>My Saved Properties ❤️</h2>
+
+      <h2>❤️ My Saved Properties</h2>
 
       <button
         className="admin-action-button"
@@ -71,42 +100,91 @@ function SavedProperties() {
         Back to Dashboard
       </button>
 
-      {properties.length === 0 ? (
-        <p>No saved properties found.</p>
+      <button
+        className="admin-action-button"
+        onClick={() => navigate("/tenant/properties")}
+      >
+        Browse More Properties
+      </button>
+
+      {savedProperties.length === 0 ? (
+        <p>You have not saved any properties yet.</p>
       ) : (
         <div className="property-list">
-          {properties.map((property) => (
-            <div className="property-card" key={property.id}>
-              {property.photo && (
-                <img
-                  src={property.photo}
-                  alt={property.propertyName}
-                  width="250"
-                />
-              )}
 
-              <h3>{property.propertyName}</h3>
+          {savedProperties.map((item) => {
+            const photos =
+              item.photos && item.photos.length > 0
+                ? item.photos
+                : item.photo
+                  ? [item.photo]
+                  : [];
 
-              <p>📍 {property.location}</p>
-              <p>🏠 Type: {property.propertyType}</p>
-              <p>💰 Rent: ₹{property.rent} / month</p>
-              <p>🛏️ Bedrooms: {property.bedrooms}</p>
-              <p>🚿 Bathrooms: {property.bathrooms}</p>
+            const currentIndex = photoIndexes[item.propertyId] || 0;
 
-              <p>{property.description}</p>
+            return (
+              <div className="property-card" key={item.propertyId}>
 
-              <button
-                className="admin-action-button"
-                onClick={() =>
-                  removeSavedProperty(property.id)
-                }
-              >
-                Remove from Saved
-              </button>
-            </div>
-          ))}
+                {photos.length > 0 && (
+                  <div className="property-gallery">
+
+                    <img
+                      src={photos[currentIndex]}
+                      alt={item.propertyName}
+                      className="property-gallery-image"
+                    />
+
+                    {photos.length > 1 && (
+                      <div className="gallery-controls">
+
+                        <button
+                          onClick={() =>
+                            previousPhoto(item.propertyId, photos.length)
+                          }
+                        >
+                          ❮ Previous
+                        </button>
+
+                        <span>
+                          {currentIndex + 1} / {photos.length}
+                        </span>
+
+                        <button
+                          onClick={() =>
+                            nextPhoto(item.propertyId, photos.length)
+                          }
+                        >
+                          Next ❯
+                        </button>
+
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                <h3>{item.propertyName}</h3>
+
+                <p>📍 {item.location}</p>
+
+                <p>🏠 Type: {item.propertyType}</p>
+
+                <p>💰 Rent: ₹{item.rent} / month</p>
+
+                <button
+                  className="admin-action-button"
+                  onClick={() => removeSavedProperty(item.propertyId)}
+                >
+                  🗑️ Remove Saved Property
+                </button>
+
+              </div>
+            );
+          })}
+
         </div>
       )}
+
     </div>
   );
 }

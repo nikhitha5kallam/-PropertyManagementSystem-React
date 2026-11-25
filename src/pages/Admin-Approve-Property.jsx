@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 function AdminApproveProperty() {
   const [properties, setProperties] = useState([]);
+  const [photoIndexes, setPhotoIndexes] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,6 +17,22 @@ function AdminApproveProperty() {
 
     setProperties(approvedProperties);
   }, []);
+
+  // Previous photo
+  function previousPhoto(id, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [id]: ((prev[id] || 0) - 1 + totalPhotos) % totalPhotos
+    }));
+  }
+
+  // Next photo
+  function nextPhoto(id, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [id]: ((prev[id] || 0) + 1) % totalPhotos
+    }));
+  }
 
   return (
     <div className="admin-section">
@@ -32,36 +49,83 @@ function AdminApproveProperty() {
         <p>No approved properties available.</p>
       ) : (
         <div className="property-list">
-          {properties.map((property) => (
-            <div className="property-card" key={property.id}>
-              {property.photo && (
-                <img
-                  src={property.photo}
-                  alt={property.propertyName}
-                  width="250"
-                />
-              )}
 
-              <h3>{property.propertyName}</h3>
+          {properties.map((property) => {
+            // Support both multiple photos and older single-photo properties
+            const photos =
+              property.photos && property.photos.length > 0
+                ? property.photos
+                : property.photo
+                  ? [property.photo]
+                  : [];
 
-              <p>📍 Location: {property.location}</p>
-              <p>🏠 Type: {property.propertyType}</p>
+            const currentIndex = photoIndexes[property.id] || 0;
 
-              <p>
-                📐 Area: {property.area} {property.areaUnit}
-              </p>
+            return (
+              <div className="property-card" key={property.id}>
 
-              <p>🛏️ Bedrooms: {property.bedrooms}</p>
-              <p>🚿 Bathrooms: {property.bathrooms}</p>
-              <p>💰 Rent: ₹{property.rent} / month</p>
+                {/* Property Photo Gallery */}
+                {photos.length > 0 && (
+                  <div className="property-gallery">
 
-              <p>{property.description}</p>
+                    <img
+                      src={photos[currentIndex]}
+                      alt={property.propertyName}
+                      className="property-gallery-image"
+                    />
 
-              <p>
-                <strong>Status: Approved ✅</strong>
-              </p>
-            </div>
-          ))}
+                    {photos.length > 1 && (
+                      <div className="gallery-controls">
+
+                        <button
+                          onClick={() =>
+                            previousPhoto(property.id, photos.length)
+                          }
+                        >
+                          ❮ Previous
+                        </button>
+
+                        <span>
+                          {currentIndex + 1} / {photos.length}
+                        </span>
+
+                        <button
+                          onClick={() =>
+                            nextPhoto(property.id, photos.length)
+                          }
+                        >
+                          Next ❯
+                        </button>
+
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                <h3>{property.propertyName}</h3>
+
+                <p>📍 Location: {property.location}</p>
+                <p>🏠 Type: {property.propertyType}</p>
+
+                <p>
+                  📐 Area: {property.area} {property.areaUnit}
+                </p>
+
+                <p>🛏️ Bedrooms: {property.bedrooms}</p>
+                <p>🚿 Bathrooms: {property.bathrooms}</p>
+                <p>💰 Rent: ₹{property.rent} / month</p>
+
+                <p>{property.description}</p>
+
+                <p>
+                  <strong>Status: Approved ✅</strong>
+                </p>
+
+              </div>
+            );
+          })}
+
         </div>
       )}
     </div>

@@ -17,7 +17,8 @@ function PostProperty() {
     description: ""
   });
 
-  const [photo, setPhoto] = useState(null);
+  const [photos, setPhotos] = useState([]);
+
   const [ownershipDocument, setOwnershipDocument] = useState(null);
   const [taxDocument, setTaxDocument] = useState(null);
   const [electricityBill, setElectricityBill] = useState(null);
@@ -31,6 +32,46 @@ function PostProperty() {
     });
   };
 
+  // Select multiple property photos
+  const handlePhotoChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+
+    if (photos.length + selectedFiles.length > 5) {
+      alert("You can upload a maximum of 5 photos.");
+      e.target.value = "";
+      return;
+    }
+
+    const validFiles = selectedFiles.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        alert(`${file.name} is not a valid image.`);
+        return false;
+      }
+
+      if (file.size > 2 * 1024 * 1024) {
+        alert(`${file.name} exceeds the 2 MB limit.`);
+        return false;
+      }
+
+      return true;
+    });
+
+    setPhotos((previousPhotos) => [
+      ...previousPhotos,
+      ...validFiles
+    ]);
+
+    e.target.value = "";
+  };
+
+  // Remove selected photo
+  const removePhoto = (index) => {
+    setPhotos((previousPhotos) =>
+      previousPhotos.filter((_, i) => i !== index)
+    );
+  };
+
+  // Convert file into Base64
   const readFile = (file) => {
     return new Promise((resolve, reject) => {
       if (!file) {
@@ -41,7 +82,8 @@ function PostProperty() {
       const reader = new FileReader();
 
       reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("File could not be read."));
+      reader.onerror = () =>
+        reject(new Error("File could not be read."));
 
       reader.readAsDataURL(file);
     });
@@ -59,15 +101,24 @@ function PostProperty() {
         return;
       }
 
+      // Minimum photo validation
+      if (photos.length < 2) {
+        alert("Please upload at least 2 property photos.");
+        return;
+      }
+
+      // Convert all photos into Base64
+      const photoData = await Promise.all(
+        photos.map((photo) => readFile(photo))
+      );
+
       const [
-        photoData,
         ownershipData,
         taxData,
         electricityData,
         ownerIdData,
         addressData
       ] = await Promise.all([
-        readFile(photo),
         readFile(ownershipDocument),
         readFile(taxDocument),
         readFile(electricityBill),
@@ -80,7 +131,12 @@ function PostProperty() {
         ownerEmail: currentUser,
         ...form,
 
-        photo: photoData,
+        // Multiple photos
+        photos: photoData,
+
+        // Keep first photo for existing pages
+        photo: photoData[0],
+
         ownershipDocument: ownershipData,
         taxDocument: taxData,
         electricityBill: electricityData,
@@ -106,17 +162,24 @@ function PostProperty() {
         JSON.stringify(properties)
       );
 
-      alert("Property submitted successfully! Waiting for Admin approval.");
+      alert(
+        "Property submitted successfully! Waiting for Admin approval."
+      );
 
       navigate("/owner");
+
     } catch (error) {
-      alert(error.message || "Unable to submit property.");
+      alert(
+        error.message ||
+        "Unable to submit property. Storage may be full."
+      );
     }
   };
 
   return (
     <div className="auth-container">
       <form className="auth-form" onSubmit={handleSubmit}>
+
         <h2>Post Your Property 🏠</h2>
 
         <input
@@ -209,48 +272,98 @@ function PostProperty() {
           required
         />
 
-        <label>Property Photo</label>
+        {/* Multiple Property Photos */}
+        <h3>📸 Property Photos</h3>
+
+        <p>
+          Upload at least 2 photos (maximum 5).
+          Each photo must be under 2 MB.
+        </p>
+
         <input
           type="file"
           accept="image/*"
-          onChange={(e) => setPhoto(e.target.files[0])}
-          required
+          multiple
+          onChange={handlePhotoChange}
         />
 
+        <p>Selected Photos: {photos.length} / 5</p>
+
+        <div className="property-list">
+          {photos.map((photo, index) => (
+            <div className="property-card" key={index}>
+
+              <img
+                src={URL.createObjectURL(photo)}
+                alt={`Property ${index + 1}`}
+                width="200"
+              />
+
+              <p>Photo {index + 1}</p>
+
+              <button
+                type="button"
+                className="admin-action-button"
+                onClick={() => removePhoto(index)}
+              >
+                Remove Photo
+              </button>
+
+            </div>
+          ))}
+        </div>
+
+        <p>
+          {photos.length >= 2
+            ? "✅ Minimum photo requirement completed!"
+            : "⚠️ Please select at least 2 photos."}
+        </p>
+
+        {/* Verification Documents */}
         <h3>Verification Documents</h3>
 
         <label>Ownership Document</label>
         <input
           type="file"
-          onChange={(e) => setOwnershipDocument(e.target.files[0])}
+          onChange={(e) =>
+            setOwnershipDocument(e.target.files[0])
+          }
           required
         />
 
         <label>Property Tax Receipt</label>
         <input
           type="file"
-          onChange={(e) => setTaxDocument(e.target.files[0])}
+          onChange={(e) =>
+            setTaxDocument(e.target.files[0])
+          }
           required
         />
 
         <label>Electricity Bill</label>
         <input
           type="file"
-          onChange={(e) => setElectricityBill(e.target.files[0])}
+          onChange={(e) =>
+            setElectricityBill(e.target.files[0])
+          }
           required
         />
 
         <label>Owner ID Proof</label>
         <input
           type="file"
-          onChange={(e) => setOwnerId(e.target.files[0])}
+          onChange={(e) =>
+            setOwnerId(e.target.files[0])
+          }
           required
         />
 
         <label>Address Proof</label>
         <input
           type="file"
-          onChange={(e) => setAddressProof(e.target.files[0])}
+          onChange={(e) =>
+            setAddressProof(e.target.files[0])
+          }
           required
         />
 
@@ -264,6 +377,7 @@ function PostProperty() {
         >
           Back to Dashboard
         </button>
+
       </form>
     </div>
   );

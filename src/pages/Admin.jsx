@@ -7,11 +7,26 @@ function Admin() {
 
   const [users, setUsers] = useState([]);
   const [properties, setProperties] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+
+  const [formData, setFormData] = useState({
+    propertyName: "",
+    location: "",
+    rent: "",
+    propertyType: "",
+    bedrooms: "",
+    bathrooms: "",
+    status: "Pending"
+  });
 
   useEffect(() => {
+    loadData();
+  }, []);
+
+  function loadData() {
     setUsers(JSON.parse(localStorage.getItem("users")) || []);
     setProperties(JSON.parse(localStorage.getItem("properties")) || []);
-  }, []);
+  }
 
   const pendingProperties = properties.filter(
     (property) => property.status === "Pending"
@@ -23,6 +38,85 @@ function Admin() {
 
   const tenants = users.filter((user) => user.role === "tenant");
   const owners = users.filter((user) => user.role === "owner");
+
+  // Open Edit Form
+  function editProperty(property) {
+    setEditingId(property.id);
+
+    setFormData({
+      propertyName: property.propertyName || "",
+      location: property.location || "",
+      rent: property.rent || "",
+      propertyType: property.propertyType || "",
+      bedrooms: property.bedrooms || "",
+      bathrooms: property.bathrooms || "",
+      status: property.status || "Pending"
+    });
+
+    window.scrollTo(0, 0);
+  }
+
+  // Handle Form Changes
+  function handleChange(event) {
+    const { name, value } = event.target;
+
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  }
+
+  // Save Updated Property
+  function updateProperty(event) {
+    event.preventDefault();
+
+    const allProperties =
+      JSON.parse(localStorage.getItem("properties")) || [];
+
+    const updatedProperties = allProperties.map((property) =>
+      property.id === editingId
+        ? { ...property, ...formData }
+        : property
+    );
+
+    localStorage.setItem(
+      "properties",
+      JSON.stringify(updatedProperties)
+    );
+
+    setProperties(updatedProperties);
+    setEditingId(null);
+
+    alert("Property updated successfully!");
+
+  }
+
+  // Delete Property
+  function deleteProperty(id) {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this property?"
+    );
+
+    if (confirmDelete) {
+      const updatedProperties = properties.filter(
+        (property) => property.id !== id
+      );
+
+      localStorage.setItem(
+        "properties",
+        JSON.stringify(updatedProperties)
+      );
+
+      setProperties(updatedProperties);
+
+      alert("Property deleted successfully!");
+    }
+  }
+
+  // Cancel Edit
+  function cancelEdit() {
+    setEditingId(null);
+  }
 
   function logout() {
     localStorage.removeItem("currentUser");
@@ -46,24 +140,28 @@ function Admin() {
         <h1>Welcome, Admin!</h1>
         <p>Manage users and monitor property listings.</p>
       </section>
+
       <button
-  onClick={() => navigate("/admin/pending-properties")}
-  className="admin-action-button"
->
-  Review Pending Properties
-</button>
-<button
-  className="admin-action-button"
-  onClick={() => navigate("/admin/approved-properties")}
->
-  View Approved Properties
-</button>
-<button
-  className="admin-action-button"
-  onClick={() => navigate("/admin/users")}
->
-  Manage Users
-</button>
+        onClick={() => navigate("/admin/pending-properties")}
+        className="admin-action-button"
+      >
+        Review Pending Properties
+      </button>
+
+      <button
+        className="admin-action-button"
+        onClick={() => navigate("/admin/approved-properties")}
+      >
+        View Approved Properties
+      </button>
+
+      <button
+        className="admin-action-button"
+        onClick={() => navigate("/admin/users")}
+      >
+        Manage Users
+      </button>
+
       <section className="admin-stats">
 
         <div className="stat-card">
@@ -98,6 +196,7 @@ function Admin() {
 
       </section>
 
+      {/* User Management */}
       <section className="admin-section">
         <h2>User Management</h2>
 
@@ -130,6 +229,102 @@ function Admin() {
         </table>
       </section>
 
+      {/* Edit Property Form */}
+      {editingId !== null && (
+        <section className="admin-section">
+          <h2>✏️ Edit Property</h2>
+
+          <form onSubmit={updateProperty}>
+
+            <input
+              type="text"
+              name="propertyName"
+              placeholder="Property Name"
+              value={formData.propertyName}
+              onChange={handleChange}
+              required
+            />
+
+            <input
+              type="text"
+              name="location"
+              placeholder="Location"
+              value={formData.location}
+              onChange={handleChange}
+              required
+            />
+
+            <input
+              type="text"
+              name="propertyType"
+              placeholder="Property Type"
+              value={formData.propertyType}
+              onChange={handleChange}
+              required
+            />
+
+            <input
+              type="number"
+              name="rent"
+              placeholder="Monthly Rent"
+              value={formData.rent}
+              onChange={handleChange}
+              required
+            />
+
+            <input
+              type="number"
+              name="bedrooms"
+              placeholder="Bedrooms"
+              value={formData.bedrooms}
+              onChange={handleChange}
+            />
+
+            <input
+              type="number"
+              name="bathrooms"
+              placeholder="Bathrooms"
+              value={formData.bathrooms}
+              onChange={handleChange}
+            />
+
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+            >
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+
+            <button
+              type="submit"
+              className="admin-action-button"
+            >
+              Save Changes
+            </button>
+
+<button
+  className="admin-action-button"
+  onClick={() => navigate("/admin/payments")}
+>
+  💳 Rental Payments
+</button>
+
+            <button
+              type="button"
+              className="admin-action-button"
+              onClick={cancelEdit}
+            >
+              Cancel
+            </button>
+
+          </form>
+        </section>
+      )}
+
+      {/* Property Management */}
       <section className="admin-section">
         <h2>Property Management</h2>
 
@@ -140,13 +335,14 @@ function Admin() {
               <th>Location</th>
               <th>Rent</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {properties.length === 0 ? (
               <tr>
-                <td colSpan="4">No properties submitted yet.</td>
+                <td colSpan="5">No properties submitted yet.</td>
               </tr>
             ) : (
               properties.map((property) => (
@@ -155,6 +351,22 @@ function Admin() {
                   <td>{property.location}</td>
                   <td>₹{property.rent}</td>
                   <td>{property.status}</td>
+
+                  <td>
+                    <button
+                      className="admin-action-button"
+                      onClick={() => editProperty(property)}
+                    >
+                      ✏️ Edit
+                    </button>
+
+                    <button
+                      className="admin-action-button"
+                      onClick={() => deleteProperty(property.id)}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </td>
                 </tr>
               ))
             )}

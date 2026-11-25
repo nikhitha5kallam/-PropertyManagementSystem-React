@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function OwnerApplications() {
   const [applications, setApplications] = useState([]);
+  const [photoIndexes, setPhotoIndexes] = useState({});
   const navigate = useNavigate();
 
   const currentUser = localStorage.getItem("currentUser");
@@ -11,22 +13,123 @@ function OwnerApplications() {
     loadApplications();
   }, []);
 
+  // Load owner's applications
   const loadApplications = () => {
     const allApplications =
       JSON.parse(localStorage.getItem("tenantApplications")) || [];
 
-    const ownerApplications = allApplications.filter(
-      (application) => application.ownerEmail === currentUser
-    );
+    const allProperties =
+      JSON.parse(localStorage.getItem("properties")) || [];
+
+    const ownerApplications = allApplications
+      .filter((application) => application.ownerEmail === currentUser)
+      .map((application) => {
+        const property = allProperties.find(
+          (p) => p.id === application.propertyId
+        );
+
+        return {
+          ...application,
+          photos: property
+            ? property.photos?.length
+              ? property.photos
+              : property.photo
+                ? [property.photo]
+                : []
+            : []
+        };
+      });
 
     setApplications(ownerApplications);
   };
 
+  // Calculate next rent due date
+  function getNextDueDate() {
+    const today = new Date();
+    let year = today.getFullYear();
+    let month = today.getMonth();
+
+    if (today.getDate() > 5) {
+      month++;
+    }
+
+    const dueDate = new Date(year, month, 5);
+
+    return dueDate.toISOString().split("T")[0];
+  }
+
+  // Photo navigation
+  function previousPhoto(id, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [id]: ((prev[id] || 0) - 1 + totalPhotos) % totalPhotos
+    }));
+  }
+
+  function nextPhoto(id, totalPhotos) {
+    setPhotoIndexes((prev) => ({
+      ...prev,
+      [id]: ((prev[id] || 0) + 1) % totalPhotos
+    }));
+  }
+
   // Accept Application
-  const acceptApplication = (application) => {
+  function acceptApplication(application) {
     const allApplications =
       JSON.parse(localStorage.getItem("tenantApplications")) || [];
 
+    const latestApplication = allApplications.find(
+      (item) => item.id === application.id
+    );
+
+    if (!latestApplication || latestApplication.status !== "Pending") {
+      alert("This application has already been processed!");
+      loadApplications();
+      return;
+    }
+
+    const rentals =
+      JSON.parse(localStorage.getItem("rentals")) || [];
+
+    const existingRental = rentals.some(
+      (rental) =>
+        rental.applicationId === application.id
+    );
+
+    if (existingRental) {
+      alert("A rental already exists for this application!");
+      return;
+    }
+
+    // Create rental with payment details
+    const newRental = {
+      id: Date.now(),
+      applicationId: application.id,
+      propertyId: application.propertyId,
+      propertyName: application.propertyName,
+      propertyLocation: application.propertyLocation,
+      propertyRent: Number(application.propertyRent),
+      monthlyRent: Number(application.propertyRent),
+
+      ownerEmail: application.ownerEmail,
+      tenantEmail: application.tenantEmail,
+      tenantName: application.tenantName,
+      phone: application.phone,
+
+      rentalStartDate: new Date().toISOString().split("T")[0],
+
+      rentDueDay: 5,
+      nextDueDate: getNextDueDate(),
+
+      paymentStatus: "Pending",
+      paymentHistory: [],
+
+      status: "Active"
+    };
+
+    rentals.push(newRental);
+
+    // Update application status
     const updatedApplications = allApplications.map((item) =>
       item.id === application.id
         ? { ...item, status: "Accepted" }
@@ -34,42 +137,27 @@ function OwnerApplications() {
     );
 
     localStorage.setItem(
+      "rentals",
+      JSON.stringify(rentals)
+    );
+
+    localStorage.setItem(
       "tenantApplications",
       JSON.stringify(updatedApplications)
     );
 
-    const rentals =
-      JSON.parse(localStorage.getItem("rentals")) || [];
-
-    const newRental = {
-      id: Date.now(),
-      propertyId: application.propertyId,
-      propertyName: application.propertyName,
-      propertyLocation: application.propertyLocation,
-      propertyRent: application.propertyRent,
-      ownerEmail: application.ownerEmail,
-      tenantEmail: application.tenantEmail,
-      tenantName: application.tenantName,
-      phone: application.phone,
-      status: "Active"
-    };
-
-    rentals.push(newRental);
-
-    localStorage.setItem("rentals", JSON.stringify(rentals));
-
-    alert("Tenant application accepted!");
+    alert("Application accepted! Rental and payment account created.");
 
     loadApplications();
-  };
+  }
 
   // Reject Application
-  const rejectApplication = (applicationId) => {
+  function rejectApplication(applicationId) {
     const allApplications =
       JSON.parse(localStorage.getItem("tenantApplications")) || [];
 
     const updatedApplications = allApplications.map((item) =>
-      item.id === applicationId
+      item.id === applicationId && item.status === "Pending"
         ? { ...item, status: "Rejected" }
         : item
     );
@@ -82,7 +170,7 @@ function OwnerApplications() {
     alert("Tenant application rejected!");
 
     loadApplications();
-  };
+  }
 
   return (
     <div className="admin-section">
@@ -101,80 +189,117 @@ function OwnerApplications() {
       ) : (
         <div className="property-list">
 
-          {applications.map((application) => (
-            <div className="property-card" key={application.id}>
+          {applications.map((application) => {
+            const photos = application.photos || [];
+            const currentIndex = photoIndexes[application.id] || 0;
 
-              <h3>{application.propertyName}</h3>
+            return (
+              <div className="property-card" key={application.id}>
 
-              <p>📍 Location: {application.propertyLocation}</p>
-              <p>💰 Monthly Rent: ₹{application.propertyRent}</p>
+                {photos.length > 0 && (
+                  <div className="property-gallery">
 
-              <hr />
+                    <img
+                      src={photos[currentIndex]}
+                      alt={application.propertyName}
+                      className="property-gallery-image"
+                    />
 
-              <h3>Tenant Details</h3>
+                    {photos.length > 1 && (
+                      <div className="gallery-controls">
 
-              <p>👤 Name: {application.tenantName}</p>
-              <p>📧 Email: {application.tenantEmail}</p>
-              <p>📞 Phone: {application.phone}</p>
+                        <button
+                          onClick={() =>
+                            previousPhoto(application.id, photos.length)
+                          }
+                        >
+                          ❮ Previous
+                        </button>
 
-              <hr />
+                        <span>
+                          {currentIndex + 1} / {photos.length}
+                        </span>
 
-              <h3>Employment & Financial Details</h3>
+                        <button
+                          onClick={() =>
+                            nextPhoto(application.id, photos.length)
+                          }
+                        >
+                          Next ❯
+                        </button>
 
-              <p>💼 Occupation: {application.occupation}</p>
-              <p>🏢 Employer: {application.employer}</p>
-              <p>💰 Monthly Income: ₹{application.income}</p>
+                      </div>
+                    )}
 
-              <hr />
+                  </div>
+                )}
 
-              <h3>Rental Requirements</h3>
+                <h3>{application.propertyName}</h3>
 
-              <p>📅 Expected Duration: {application.duration}</p>
-              <p>👨‍👩‍👧‍👦 Household Members: {application.familyMembers}</p>
-              <p>🏠 Expected Move-in Date: {application.moveInDate}</p>
+                <p>📍 Location: {application.propertyLocation}</p>
+                <p>💰 Monthly Rent: ₹{application.propertyRent}</p>
 
-              <hr />
+                <hr />
 
-              <h3>Previous Rental Details</h3>
+                <h3>Tenant Details</h3>
 
-              <p>
-                {application.rentalHistory || "Not provided"}
-              </p>
+                <p>👤 Name: {application.tenantName}</p>
+                <p>📧 Email: {application.tenantEmail}</p>
+                <p>📞 Phone: {application.phone}</p>
 
-              <hr />
+                <hr />
 
-              <h3>Additional Information</h3>
+                <h3>Employment & Financial Details</h3>
 
-              <p>
-                {application.additionalInfo || "Not provided"}
-              </p>
+                <p>💼 Occupation: {application.occupation}</p>
+                <p>🏢 Employer: {application.employer}</p>
+                <p>💰 Monthly Income: ₹{application.income}</p>
 
-              <hr />
+                <hr />
 
-              <h3>Application Status: {application.status}</h3>
+                <h3>Rental Requirements</h3>
 
-              {application.status === "Pending" && (
-                <div>
+                <p>📅 Duration: {application.duration}</p>
+                <p>👨‍👩‍👧‍👦 Household Members: {application.familyMembers}</p>
+                <p>🏠 Move-in Date: {application.moveInDate}</p>
 
-                  <button
-                    className="admin-action-button"
-                    onClick={() => acceptApplication(application)}
-                  >
-                    ✅ Accept
-                  </button>
+                <hr />
 
-                  <button
-                    className="admin-action-button"
-                    onClick={() => rejectApplication(application.id)}
-                  >
-                    ❌ Reject
-                  </button>
+                <h3>Previous Rental Details</h3>
+                <p>{application.rentalHistory || "Not provided"}</p>
 
-                </div>
-              )}
+                <hr />
 
-            </div>
-          ))}
+                <h3>Additional Information</h3>
+                <p>{application.additionalInfo || "Not provided"}</p>
+
+                <hr />
+
+                <h3>Application Status: {application.status}</h3>
+
+                {application.status === "Pending" && (
+                  <div>
+
+                    <button
+                      className="admin-action-button"
+                      onClick={() => acceptApplication(application)}
+                    >
+                      ✅ Accept
+                    </button>
+
+                    <button
+                      className="admin-action-button"
+                      onClick={() => rejectApplication(application.id)}
+                    >
+                      ❌ Reject
+                    </button>
+
+                  </div>
+                )}
+
+              </div>
+            );
+          })}
 
         </div>
       )}

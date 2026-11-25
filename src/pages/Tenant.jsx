@@ -115,6 +115,12 @@ function Tenant() {
         >
           My Profile
         </button>
+        <button
+  className="admin-action-button"
+  onClick={() => navigate("/tenant/payments")}
+>
+  💳 My Payments
+</button>
       </div>
     </div>
   );

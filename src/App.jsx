@@ -16,6 +16,10 @@ import Owner from "./pages/Owner";
 import PostProperty from "./pages/PostProperty";
 import MyProperties from "./pages/MyProperties";
 import OwnerApplications from "./pages/OwnerApplications";
+import OwnerPayments from "./pages/OwnerPayments";
+import AdminPayments from "./pages/AdminPayments";
+
+
 
 // Tenant Pages
 import Tenant from "./pages/Tenant";
@@ -24,7 +28,7 @@ import SavedProperties from "./pages/SavedProperties";
 import MyRentals from "./pages/MyRentals";
 import TenantProfile from "./pages/TenantProfile";
 import TenantApplication from "./pages/TenantApplication";
-
+import TenantPayments from "./pages/TenantPayments";
 import "./App.css";
 
 function App() {
@@ -87,6 +91,16 @@ function App() {
           path="/tenant/apply"
           element={<TenantApplication />}
         />
+        <Route 
+        path="/tenant/payments" 
+        element={<TenantPayments />}
+        />
+
+<Route path="/owner/payments" element={<OwnerPayments />} />
+
+
+<Route path="/admin/payments" element={<AdminPayments />} />
+
 
       </Routes>
     </BrowserRouter>

@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function Properties() {
   const [properties, setProperties] = useState([]);
+  const [photoIndexes, setPhotoIndexes] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,6 +17,25 @@ function Properties() {
 
     setProperties(approvedProperties);
   }, []);
+
+  // Show next photo
+  const nextPhoto = (propertyId, totalPhotos) => {
+    setPhotoIndexes((previous) => ({
+      ...previous,
+      [propertyId]:
+        ((previous[propertyId] || 0) + 1) % totalPhotos
+    }));
+  };
+
+  // Show previous photo
+  const previousPhoto = (propertyId, totalPhotos) => {
+    setPhotoIndexes((previous) => ({
+      ...previous,
+      [propertyId]:
+        ((previous[propertyId] || 0) - 1 + totalPhotos) %
+        totalPhotos
+    }));
+  };
 
   // Save Property
   const saveProperty = (propertyId) => {
@@ -78,7 +99,6 @@ function Properties() {
       return;
     }
 
-    // Open Tenant Application Form
     navigate("/tenant/apply", {
       state: { property: property }
     });
@@ -99,48 +119,100 @@ function Properties() {
         <p>No approved properties available currently.</p>
       ) : (
         <div className="property-list">
-          {properties.map((property) => (
-            <div className="property-card" key={property.id}>
+          {properties.map((property) => {
 
-              {property.photo && (
-                <img
-                  src={property.photo}
-                  alt={property.propertyName}
-                  width="250"
-                />
-              )}
+            // Support new multiple photos and old single photos
+            const propertyPhotos =
+              property.photos && property.photos.length > 0
+                ? property.photos
+                : property.photo
+                  ? [property.photo]
+                  : [];
 
-              <h3>{property.propertyName}</h3>
+            const currentIndex = photoIndexes[property.id] || 0;
 
-              <p>📍 Location: {property.location}</p>
-              <p>🏠 Type: {property.propertyType}</p>
+            return (
+              <div className="property-card" key={property.id}>
 
-              <p>
-                📐 Area: {property.area} {property.areaUnit}
-              </p>
+                {/* Property Photo Gallery */}
+                {propertyPhotos.length > 0 && (
+                  <div className="property-gallery">
 
-              <p>🛏️ Bedrooms: {property.bedrooms}</p>
-              <p>🚿 Bathrooms: {property.bathrooms}</p>
-              <p>💰 Rent: ₹{property.rent} / month</p>
+                    <img
+                      src={propertyPhotos[currentIndex]}
+                      alt={property.propertyName}
+                      className="property-gallery-image"
+                    />
 
-              <p>{property.description}</p>
+                    {propertyPhotos.length > 1 && (
+                      <div className="gallery-controls">
 
-              <button
-                className="admin-action-button"
-                onClick={() => saveProperty(property.id)}
-              >
-                ❤️ Save Property
-              </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            previousPhoto(
+                              property.id,
+                              propertyPhotos.length
+                            )
+                          }
+                        >
+                          ❮ Previous
+                        </button>
 
-              <button
-                className="admin-action-button"
-                onClick={() => applyProperty(property)}
-              >
-                Apply for Property
-              </button>
+                        <span>
+                          {currentIndex + 1} / {propertyPhotos.length}
+                        </span>
 
-            </div>
-          ))}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            nextPhoto(
+                              property.id,
+                              propertyPhotos.length
+                            )
+                          }
+                        >
+                          Next ❯
+                        </button>
+
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                <h3>{property.propertyName}</h3>
+
+                <p>📍 Location: {property.location}</p>
+                <p>🏠 Type: {property.propertyType}</p>
+
+                <p>
+                  📐 Area: {property.area} {property.areaUnit}
+                </p>
+
+                <p>🛏️ Bedrooms: {property.bedrooms}</p>
+                <p>🚿 Bathrooms: {property.bathrooms}</p>
+                <p>💰 Rent: ₹{property.rent} / month</p>
+
+                <p>{property.description}</p>
+
+                <button
+                  className="admin-action-button"
+                  onClick={() => saveProperty(property.id)}
+                >
+                  ❤️ Save Property
+                </button>
+
+                <button
+                  className="admin-action-button"
+                  onClick={() => applyProperty(property)}
+                >
+                  Apply for Property
+                </button>
+
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

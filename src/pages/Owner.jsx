@@ -100,6 +100,14 @@ function Owner() {
         >
           Tenant Applications
         </button>
+
+<button
+  className="admin-action-button"
+  onClick={() => navigate("/owner/payments")}
+>
+  💳 Tenant Payments
+</button>
+
       </div>
     </div>
   );
